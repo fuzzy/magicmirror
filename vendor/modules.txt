@@ -1,0 +1,7 @@
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
+github.com/dustin/go-humanize
+# golang.org/x/net v0.26.0
+## explicit; go 1.18
+golang.org/x/net/html
+golang.org/x/net/html/atom
