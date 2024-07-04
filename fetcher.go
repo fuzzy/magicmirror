@@ -96,6 +96,13 @@ func fetchWorker(toFetch chan string) {
 			if _, err := os.Stat(fmt.Sprintf("%s.lock", ofn)); err != nil {
 				// if the lock file does not exist, we should create it
 				_, err = os.Create(fmt.Sprintf("%s.lock", ofn))
+
+				dfn := uri.String()
+				if len(ofn) > 47 {
+					dfn = fmt.Sprintf("...%s", ofn[len(ofn)-47:])
+				}
+				debug(fmt.Sprintf("Fetching: %-50s", dfn))
+
 				if err != nil {
 					error(fmt.Sprintf("Error: %s", err))
 					os.Exit(1)
@@ -127,7 +134,7 @@ func fetchWorker(toFetch chan string) {
 					}
 					// and truncate the beginning of the filename if it's too long for display
 					// leaving room for 3 dots
-					dfn := ofn
+					dfn = ofn
 					if len(ofn) > 47 {
 						dfn = fmt.Sprintf("...%s", ofn[len(ofn)-47:])
 					}

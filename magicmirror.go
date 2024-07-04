@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/fuzzy/subhuman"
 	"github.com/jessevdk/go-flags"
 )
 
@@ -59,6 +60,10 @@ func main() {
 		go fetchWorker(toFetch)
 	}
 
+	// record start time
+	start := time.Now().Unix()
+
+	// send all URLs to the toParse channel
 	for _, _url := range opts.URLs {
 		toParse <- _url
 	}
@@ -67,21 +72,24 @@ func main() {
 	if !opts.Quiet {
 		fmt.Println("Waiting for workers to start...")
 	}
+
 	time.Sleep(15 * time.Second)
 
 	// Wait for all workers to finish
 	for len(toParse) > 0 || len(toMatch) > 0 || len(toFetch) > 0 || fetched < matched {
 		if !opts.Quiet {
 			_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
-			_c := fmt.Sprintf("(%d/%d %6s%%)", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
-			fmt.Print(fmt.Sprintf("%s %s\r", _q, _c))
+			_c := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
+			_d := fmt.Sprintf(" in %s)", subhuman.HumanTimeColon(time.Now().Unix()-start))
+			fmt.Print(fmt.Sprintf("%s %s%s\r", _q, _c, _d))
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !opts.Quiet {
 		_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
-		_c := fmt.Sprintf("(%d/%d %6s%%)", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
-		fmt.Print(fmt.Sprintf("%s %s\r", _q, _c))
+		_c := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
+		_d := fmt.Sprintf(" in %s)", subhuman.HumanTimeColon(time.Now().Unix()-start))
+		fmt.Print(fmt.Sprintf("%s %s%s\r", _q, _c, _d))
 		fmt.Println("")
 	}
 }
