@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +20,12 @@ func httpGet(uri string) string {
 		proxy, _ := url.Parse(os.Getenv("http_proxy"))
 		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxy)}
 	}
-	resp, err := http.Get(uri)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("GET", uri, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		error(fmt.Sprintf("Error: %s", err))
 		os.Exit(1)
@@ -32,6 +39,38 @@ func httpGet(uri string) string {
 	return string(body)
 }
 
+func httpFetch(uri string, ofn string) {
+	if os.Getenv("http_proxy") != "" {
+		proxy, _ := url.Parse(os.Getenv("http_proxy"))
+		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxy)}
+	}
+	resp, err := http.Get(uri)
+	if err != nil {
+		error(fmt.Sprintf("Error: %s", err))
+		os.Exit(1)
+	}
+	defer resp.Body.Close()
+
+	tmp := make([]byte, 10485760) // buffer size of 10MB
+	ofp, _ := os.OpenFile(ofn, os.O_CREATE|os.O_WRONLY, 0644)
+	defer ofp.Close()
+
+	for {
+		n, err := resp.Body.Read(tmp)
+		if err != nil && err != io.EOF {
+			error(fmt.Sprintf("Error: %s", err))
+			os.Exit(1)
+		}
+		if n == 0 {
+			break
+		}
+		ofp.Write(tmp[:n])
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return
+}
+
 func fetchWorker(toFetch chan string) {
 	for {
 		select {
@@ -41,11 +80,11 @@ func fetchWorker(toFetch chan string) {
 
 			// if *trimLeading is greater than zero, we should trim that many leading directories
 			odn := ""
-			if *trimLeading == 0 {
+			if opts.TrimLeading == 0 {
 				odn = fmt.Sprintf("%s%s", uri.Hostname(), filepath.Dir(uri.Path))
 			} else {
 				_odn := fmt.Sprintf("%s%s", uri.Hostname(), filepath.Dir(uri.Path))
-				odn = strings.Join(strings.Split(_odn, "/")[*trimLeading:], "/")
+				odn = strings.Join(strings.Split(_odn, "/")[opts.TrimLeading:], "/")
 			}
 			ofn := fmt.Sprintf("%s/%s", odn, filepath.Base(uri.Path))
 
@@ -54,32 +93,53 @@ func fetchWorker(toFetch chan string) {
 
 			// if the file already exists, we should do a HEAD request and compare the content-length
 			dload := true
-			stat, err := os.Stat(ofn)
-			if err == nil {
-				resp, _ := http.Head(val)
-				if stat.Size() == resp.ContentLength {
-					dload = false
-					debug(fmt.Sprintf("Skipping: %s", val))
+			if _, err := os.Stat(fmt.Sprintf("%s.lock", ofn)); err != nil {
+				// if the lock file does not exist, we should create it
+				_, err = os.Create(fmt.Sprintf("%s.lock", ofn))
+				if err != nil {
+					error(fmt.Sprintf("Error: %s", err))
+					os.Exit(1)
 				}
-			}
+				stat, err := os.Stat(ofn)
+				if err == nil {
+					resp, _ := http.Head(val)
+					if stat.Size() == resp.ContentLength {
+						dload = false
+						debug(fmt.Sprintf("Skipping: %s", val))
+						fetched++
+					}
+				}
 
-			if dload {
-				ofp, _ := os.OpenFile(ofn, os.O_CREATE|os.O_WRONLY, 0644)
-				st := time.Now()
-				// actually move the bits
-				ofp.WriteString(httpGet(val))
-				// close the file
-				ofp.Close()
-				// and analyze the time it took
-				et := time.Since(st)
-				sz, _ := os.Stat(ofn)
-				sp := int64(0)
-				if int64(et.Seconds()) >= 1 {
-					sp = sz.Size() / int64(et.Seconds())
-				} else {
-					sp = sz.Size()
+				if dload {
+					st := time.Now()
+					// actually move the bits
+					httpFetch(val, ofn)
+					r := rand.Intn(5)
+					time.Sleep(time.Duration(r) * time.Millisecond)
+					// and analyze the time it took
+					et := time.Since(st)
+					sz, _ := os.Stat(ofn)
+					sp := int64(0)
+					if int64(et.Seconds()) >= 1 {
+						sp = sz.Size() / int64(et.Seconds())
+					} else {
+						sp = sz.Size()
+					}
+					// and truncate the beginning of the filename if it's too long for display
+					// leaving room for 3 dots
+					dfn := ofn
+					if len(ofn) > 47 {
+						dfn = fmt.Sprintf("...%s", ofn[len(ofn)-47:])
+					}
+					// and display the results
+					info(fmt.Sprintf("Fetched: %-50s [%-10s @ %10s/s]", dfn, humanize.Bytes(uint64(sz.Size())), humanize.Bytes(uint64(sp))))
+					fetched++
 				}
-				info(fmt.Sprintf("Fetched: %-45s [%-10s @ %s/s]", ofn, humanize.Bytes(uint64(sz.Size())), humanize.Bytes(uint64(sp))))
+				// and remove the lock file
+				_ = os.Remove(fmt.Sprintf("%s.lock", ofn))
+			} else {
+				debug(fmt.Sprintf("Skipping: %s", val))
+				fetched++
 			}
 		}
 	}
