@@ -33,20 +33,36 @@ func colorize(color Color, message string) string {
 
 func debug(message string) {
 	if !opts.Quiet && len(opts.Verbose) >= 2 {
-		fmt.Println(fmt.Sprintf("%s###%s %s", BoldBlueFg, Reset, message))
+		if !opts.StripColor {
+			fmt.Println(fmt.Sprintf("%s###%s %s", BoldBlueFg, Reset, message))
+		} else {
+			fmt.Println(fmt.Sprintf("### %s", message))
+		}
 	}
 }
 
 func info(message string) {
 	if !opts.Quiet && len(opts.Verbose) == 1 {
-		fmt.Println(fmt.Sprintf("%s>>>%s %s", BoldGreenFg, Reset, message))
+		if !opts.StripColor {
+			fmt.Println(fmt.Sprintf("%s>>>%s %s", BoldGreenFg, Reset, message))
+		} else {
+			fmt.Println(fmt.Sprintf(">>> %s", message))
+		}
 	}
 }
 
 func warn(message string) {
-	fmt.Println(fmt.Sprintf("%s***%s %s", BoldYellowFg, Reset, message))
+	if !opts.StripColor {
+		fmt.Println(fmt.Sprintf("%s***%s %s", BoldYellowFg, Reset, message))
+	} else {
+		fmt.Println(fmt.Sprintf("*** %s", message))
+	}
 }
 
 func error(message string) {
-	fmt.Println(fmt.Sprintf("%s!!!%s %s", BoldRedFg, Reset, message))
+	if !opts.StripColor {
+		fmt.Println(fmt.Sprintf("%s!!!%s %s", BoldRedFg, Reset, message))
+	} else {
+		fmt.Println(fmt.Sprintf("!!! %s", message))
+	}
 }

@@ -18,13 +18,16 @@ var matched = 0
 var fetched = 0
 
 var opts struct {
-	Verbose     []bool   `short:"v" long:"verbose" description:"Show verbose information (twice for debug)"`
-	Quiet       bool     `short:"q" long:"quiet" description:"Suppress output"`
-	StripColor  bool     `short:"c" long:"strip-color" description:"Strip colorized output"`
-	TrimLeading int      `short:"t" long:"trim-leading" description:"Trim leading directory components"`
-	Regex       []string `short:"r" long:"regex" description:"Regex pattern to match (can be specified multiple times)"`
-	URLs        []string `short:"u" long:"url" description:"URLs to fetch (can be specified multiple times)"`
-	ShowVersion bool     `short:"V" long:"version" description:"Show version information"`
+	Verbose         []bool   `short:"v" long:"verbose" description:"Show verbose information (twice for debug)"`
+	Quiet           bool     `short:"q" long:"quiet" description:"Suppress output"`
+	StripColor      bool     `short:"c" long:"strip-color" description:"Strip colorized output"`
+	TrimLeading     int      `short:"t" long:"trim-leading" description:"Trim leading directory components"`
+	ProcessWorkers  int      `short:"p" long:"process-workers" description:"Number of process workers to start" default:"25"`
+	MatchWorkers    int      `short:"m" long:"match-workers" description:"Number of match workers to start" default:"2"`
+	DownloadWorkers int      `short:"d" long:"download-workers" description:"Number of download workers to start" default:"2"`
+	Regex           []string `short:"r" long:"regex" description:"Regex pattern to match (can be specified multiple times)"`
+	URLs            []string `short:"u" long:"url" description:"URLs to fetch (can be specified multiple times)"`
+	ShowVersion     bool     `short:"V" long:"version" description:"Show version information"`
 }
 
 func main() {
@@ -34,26 +37,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println(opts)
-
-	fmt.Println("")
-
 	if opts.ShowVersion {
 		info(fmt.Sprintf("%s v%s.%s", programName, programVersion, programPatch))
 		info(fmt.Sprintf("Copyright %s by %s", programCopy, programAuthor))
 		return
 	}
 
-	toParse := make(chan string, 10*(1024*1024))
-	toMatch := make(chan string, 10*(1024*1024))
-	toFetch := make(chan string, 10*(1024*1024))
+	toParse := make(chan string, 25*(1024*1024))
+	toMatch := make(chan string, 25*(1024*1024))
+	toFetch := make(chan string, 25*(1024*1024))
 
-	for i := 0; i < 25; i++ {
+	for i := 0; i < opts.ProcessWorkers; i++ {
 		go parseWorker(toParse, toMatch)
+	}
+
+	for i := 0; i < opts.MatchWorkers; i++ {
 		go matchWorker(opts.Regex, toParse, toMatch, toFetch)
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < opts.DownloadWorkers; i++ {
 		go fetchWorker(toFetch)
 	}
 
@@ -62,15 +64,24 @@ func main() {
 	}
 
 	// Wait for all workers to start
-	time.Sleep(5 * time.Second)
+	if !opts.Quiet {
+		fmt.Println("Waiting for workers to start...")
+	}
+	time.Sleep(15 * time.Second)
 
 	// Wait for all workers to finish
 	for len(toParse) > 0 || len(toMatch) > 0 || len(toFetch) > 0 || fetched < matched {
+		if !opts.Quiet {
+			_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
+			_c := fmt.Sprintf("(%d/%d %6s%%)", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
+			fmt.Print(fmt.Sprintf("%s %s\r", _q, _c))
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !opts.Quiet {
 		_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
 		_c := fmt.Sprintf("(%d/%d %6s%%)", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
 		fmt.Print(fmt.Sprintf("%s %s\r", _q, _c))
-		time.Sleep(100 * time.Millisecond)
+		fmt.Println("")
 	}
-	fmt.Println("")
-
 }
