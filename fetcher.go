@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
+	"github.com/fuzzy/subhuman"
 )
 
 func httpGet(uri string) string {
@@ -112,7 +112,15 @@ func fetchWorker(toFetch chan string) {
 					resp, _ := http.Head(val)
 					if stat.Size() == resp.ContentLength {
 						dload = false
-						debug(fmt.Sprintf("Skipping: %s", val))
+						if len(val) > 85 {
+							dfn = fmt.Sprintf("...%s", val[len(val)-85:])
+						} else if len(val) < 85 {
+							dfn = val
+							for i := 0; i < 85-len(val); i++ {
+								dfn += " "
+							}
+						}
+						debug(fmt.Sprintf("Skipping: %s", dfn))
 						fetched++
 					}
 				}
@@ -135,11 +143,12 @@ func fetchWorker(toFetch chan string) {
 					// and truncate the beginning of the filename if it's too long for display
 					// leaving room for 3 dots
 					dfn = ofn
-					if len(ofn) > 47 {
+					if len(ofn) > 67 {
 						dfn = fmt.Sprintf("...%s", ofn[len(ofn)-47:])
 					}
 					// and display the results
-					info(fmt.Sprintf("Fetched: %-50s [%-10s @ %10s/s]", dfn, humanize.Bytes(uint64(sz.Size())), humanize.Bytes(uint64(sp))))
+					info(fmt.Sprintf("Fetched: %-87s [%-10s @ %10s/s]", dfn, subhuman.HumanSize(int64(sz.Size())), subhuman.HumanSize(int64(sp))))
+					totalSize += int64(sz.Size())
 					fetched++
 				}
 				// and remove the lock file

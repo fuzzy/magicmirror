@@ -17,6 +17,7 @@ var programCopy = "2024"
 
 var matched = 0
 var fetched = 0
+var totalSize = int64(0)
 
 var opts struct {
 	Verbose         []bool   `short:"v" long:"verbose" description:"Show verbose information (twice for debug)"`
@@ -78,18 +79,29 @@ func main() {
 	// Wait for all workers to finish
 	for len(toParse) > 0 || len(toMatch) > 0 || len(toFetch) > 0 || fetched < matched {
 		if !opts.Quiet {
-			_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
-			_c := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
-			_d := fmt.Sprintf(" in %s)", subhuman.HumanTimeColon(time.Now().Unix()-start))
-			fmt.Print(fmt.Sprintf("%s %s%s\r", _q, _c, _d))
+			_toParse := len(toParse)
+			_toMatch := len(toMatch)
+			_toFetch := len(toFetch)
+			_partOne := fmt.Sprintf("toParse: %-9d || toMatch: %-9d || toFetch: %-9d", _toParse, _toMatch, _toFetch)
+			_percent := float64(fetched) / float64(matched) * float64(100)
+			_partTwo := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", _percent))
+			_totalSize := subhuman.HumanSize(totalSize)
+			_speed := subhuman.HumanSize(int64(float64(totalSize) / (float64(time.Now().Unix() - start))))
+			_partThree := fmt.Sprintf("|| %s in %s @ %s)", _totalSize, subhuman.HumanTimeColon(time.Now().Unix()-start), _speed)
+			fmt.Print(fmt.Sprintf("%s %s %s\r", _partOne, _partTwo, _partThree))
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !opts.Quiet {
-		_q := fmt.Sprintf("toParse: %-10d || toMatch: %-10d || toFetch: %-10d", len(toParse), len(toMatch), len(toFetch))
-		_c := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", (float64(fetched)/float64(matched))*float64(100)))
-		_d := fmt.Sprintf(" in %s)", subhuman.HumanTimeColon(time.Now().Unix()-start))
-		fmt.Print(fmt.Sprintf("%s %s%s\r", _q, _c, _d))
-		fmt.Println("")
+		_toParse := len(toParse)
+		_toMatch := len(toMatch)
+		_toFetch := len(toFetch)
+		_partOne := fmt.Sprintf("toParse: %-9d || toMatch: %-9d || toFetch: %-9d", _toParse, _toMatch, _toFetch)
+		_percent := float64(fetched) / float64(matched) * float64(100)
+		_partTwo := fmt.Sprintf("(%d/%d %6s%%", fetched, matched, fmt.Sprintf("%.02f", _percent))
+		_totalSize := subhuman.HumanSize(totalSize)
+		_speed := subhuman.HumanSize(int64(float64(totalSize) / (float64(time.Now().Unix() - start))))
+		_partThree := fmt.Sprintf("|| %s in %s @ %s)", _totalSize, subhuman.HumanTimeColon(time.Now().Unix()-start), _speed)
+		fmt.Print(fmt.Sprintf("%s %s %s\r", _partOne, _partTwo, _partThree))
 	}
 }
