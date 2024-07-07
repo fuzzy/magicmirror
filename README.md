@@ -1,3 +1,5 @@
+![MagicMirror](https://raw.githubusercontent.com/fuzzy/magicmirror/main/logo.png)
+
 # MagicMirror
 
 Usage of the tool is relatively simple, given you know RegEx.
